@@ -1,0 +1,33 @@
+#!/bin/bash
+#SBATCH -p standard
+#SBATCH -A
+#SBATCH -J firedrake
+#SBATCH -N 1
+#SBATCH --qos=standard
+#SBATCH -t 4:00:00 # Overwrite last 3 using sbatch at submit time
+
+# Must pass in:
+# NCPU - Number of CPUs on one node to use
+# RESULTS_DIR - Directory to save results to
+# BASEN - Coarse grid size
+# NREF - Number of multigrid refinements
+
+module load epcc-job-env
+
+export LOCAL_BIN=/work/e682/e682/jbetteri/local/bin
+source $LOCAL_BIN/firedrake_activate.sh
+srun -n 1 --ntasks-per-node 1 $LOCAL_BIN/firedrake_activate.sh
+
+export TSFACTOR=1
+export COMM="srun -n ${NCPU} $VIRTUAL_ENV/bin/python \
+                mms_scaling.py \
+                    --dim 3 --baseN ${BASEN} --nref ${NREF} --k 2 \
+                    --discretisation pkp0 --solver-type almg \
+                    --mh uniform --patch star --gamma 1e4 \
+                    --stabilisation-type supg --stabilisation-weight 0.05 \
+                    --telescope-factor ${TSFACTOR} \
+                    --resultsdir ${RESULTS_DIR} \
+                    -log_view :${RESULTS_DIR}/${NCPU}_logview.py:ascii_info_detail"
+echo $COMM > ${RESULTS_DIR}/1_${NCPU}_srun.txt
+eval $COMM
+$LOCAL_BIN/update_firedrake_cache.sh
